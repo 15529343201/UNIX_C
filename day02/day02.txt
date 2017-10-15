@@ -1,0 +1,87 @@
+1.复习:
+  表达式计算:自己整理思路==>方法
+  linux常识：man gets,环境变量,env/set
+  静态库动态库:
+      差别(静态库中的代码复制到可执行文件中,执行时不再依赖库,不会自动使用升级后的库,必须重新产生可执行文件;动态库代码不在可执行文件中,执行时加载,库升级后可执行文件会自动使用新库)
+	  静态库
+	    产生库:写C文件(函数或者全局变量,不应有main),编译(gcc -c ....),打包成库(ar -r libxxx.a 若干个.o),写一个.h文件(函数或者全局变量的声明)
+		       多文件:把一个.C切成多个,#include每个文件里一份,为每个.c写一个.h来放这个.c文件中的函数和全局变量的声明。
+		产生可执行文件:写c程序(#include库的头文件,可以使用库中的函数和变量),gcc libxxx.a c程序文件,或者gcc -lxxx -L库文件所在目录 c程序文件,或者设置环境变量LIBRARY_PATH值为库文件所在目录从而省略-L选项。
+		执行可执行文件:直接执行可执行文件
+	  动态库
+	    产生库:写若干个c程序(函数或者全局变量,不应有main),gcc -fpic -shared -o libxxx.so ...
+		产生可执行文件:写c程序(#include库的头文件,可以使用库中的函数和变量),gcc -lxxx -L库文件所在目录 c程序文件,或者设置环境变量LIBRARY_PATH的值为库文件所在目录从而省略-L选项。
+		执行可执行文件:先把库文件复制到/lib或者/usr/lib目录下或者设置环境变量LD_LIBRARY_PATH值为库文件所在目录,在执行可执行文件。
+		~/.bashrc
+		  PATH=$PATH:.
+		  export LIBRARY_PATH=$LIBRARY_PATH:库文件目录
+		  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:动态库文件目录nm
+	    升级库:把生产库的过程重复一遍。如果是动态库,可执行文件会自动使用新库,如果是静态库,还需要重复"产生可执行文件"的过程,新的可执行文件使用的才是新库。
+
+在程序中了解自己的运行环境
+gcc 扩展
+  预定义宏:
+__FILE__,__LINE__,__DATE__,__TIME__,__FUNCTION__,
+  C++程序中会有__cpluscplus
+  #pragma pack(1)按1字节对齐补齐
+  #pragma pack(4)按4字节对齐补齐
+  属性修饰__attribute__((属性))
+      函数constructor/destructor
+      结构aligned(1)/aligned(4)按1或者4字节对齐补齐
+  typeof(x) 在编译时取得x的类型名
+  #define swap(x,y) {typeof(x) t=x;x=y;y=t;}
+工具命令:
+  nm显示目标文件中的符号(名字)清单
+  ldconfig把动态库放入缓存中。系统启动会自动执行。
+  ldd查看一个程序依赖那些动态库。
+  strip去掉目标文件中的冗余信息,一般是调试相关的信息。
+  objdump显示目标(二进制)文件中的附加信息
+加载执行动态库
+  void *dlopen(const char *filename,int flag);打开动态库文件,返回一个指针作为句柄handle,失败返回NULL。flag标志取值RTLD_NOW表示立即加载到内存,RTLD_LAZY表示在使用时才加载。
+  潜规则:返回指针的函数一般用正常地址表示成功,NULL表示失败。个别例外返回(void*)0xffffffff表示失败。
+  char *dlerror(void);取得一个字符串描述动态库操作发生了什么错误。
+  void *dlsym(void *handle,const char *symbol);查找指定的符号名在动态库中的地址,失败返回NULL。(严格的做法是在dlsym调用前调用dlerror(),dlsym之后在调用dlerror()判断后一次的返回值是否非空来判断是否失败。)
+  int dlclose(void *handle);关闭动态库,从内存中卸载。
+  头文件:<dlfcn.h>
+  这些函数在动态库libdl.so中,gcc -ldl ...
+  dlopen如果第一个参数没有指定动态库路径,系统通过环境变量LD_LIBRARY_PATH或者/lib和/usr/lib去查找动态库文件;如果带了路径就按照所带的路径查找。
+
+2.访问环境变量
+	env/set
+	main(int argc,char* argv[],char* env[])
+	env是一个字符串(char*)数组,每个元素是一个环境变量字符串。env没有元素个数,它是通过一个值为NULL的元素来表示结束的。潜规则:向一个函数传递指针数组时,一般不传递元素个数,而是用一个NULL来作为结束元素。
+	wc命令:统计 env | wc -l
+	  -l统计行数
+	  -w统计单词数
+	  -c统计字符数
+	如果main没有env形参,可以用全局变量environ,它就是环境变量字符串数组,跟env一样。但是需要自己声明这个全局变量:extern char** environ;
+	char* getenv(环境变量名字符串)返回环境变量的值字符串
+	putenv(环境变量字符串)
+	setenv(环境变量名,环境变量值,是否覆盖)
+	两个函数都用来设置环境变量,返回int表示成功失败。
+	潜规则:返回整数的函数,一般返回0或者正数表示成功,-1表示失败。isXX类的函数(isdigit/isalpha...)返回bool类型表示真假。
+	头文件:<stdlib.h>
+	子进程中对环境变量的操作不会影响父进程的环境变量,父进程是在子进程运行时把自己的全局环境变量复制一份到子进程。
+	unsetenv(环境变量)
+	clearenv()清除所有环境变量
+
+3进程的内存：
+	每个进程都有自己独立的4G内存,进程访问数据时,使用的都是虚拟内存地址,由操作系统负责把虚拟内存地址对应到物理内存地址。操作系统为每个进程建立一个虚拟地址到物理地址的映射表。操作系统映射内存地址以"页"为单位,所以映射表也称为页表。一页的大小可以用getpagesize()取得。头文件<unistd.h>
+	unix standard header file
+	一般来说,两个进程即使使用同一个虚拟内存地址,访问的也是两个不同的地方。因此/指针一旦跨越进程就毫无意义。
+	进程内存分段:代码段(函数和一些常量),数据段(带初始化的全局变量和静态局部变量),BSS段(未初始化的全局变量和静态局部变量),堆(动态分配内存),栈(普通局部变量)。高地址1G内存一般是内核和动态库使用的。
+	size命令:显示一个程序需要的内存大小。text是代码段(正文段)大小,data是数据段。不会显示堆和栈,因为它们是不定的。size a.out
+	/proc目录下有每个进程的信息,保存在以那个进程的id为名字的子目录中。maps和smaps文件是关于本进程内存映射的。
+
+低级内存分配:
+	以前C用malloc/realloc/calloc分配,两次调用分配的内存一定不连续,因为每块内存前面或者后面需要保留一点空间来存储这块内存的管理控制信息。
+	sbrk/brk重新指定数据段的结束位置。sbrk(增量),增量可正可负,也可以是0,都返回原来的数据段结束地址,失败返回-1。brk(地址),返回0或者-1。头文件<unistd.h>。sbrk(0)可以取得当前结束地址。没有使用的虚拟内存地址操作系统就没有映射到物理内存,如果视图访问会产生段错误。指定新的结束位置后如果有整个内存页被空闲出来,这一页会立即被解除映射。
+	mmap/unmmap内存映射/解除映射
+	void *mmap(void *addr,//指定映射到内存那个地址,一般为NULL
+			size_t length,//长度(字节数)
+			int prot,//PROT_READ,PROT_WRITE,PROT_EXEC组合
+			int flags,//MAP_SHARED和MAP_PRIVATE二选一后再跟其它标志组合:MAP_ANONYMOUS表示不使用文件(内存自动用0初始化)
+			int fd,off_t offset);//文件映射时再讲
+	int munmap(void *addr,size_t length);//取消映射
+	内核的kmalloc/vmalloc
+
