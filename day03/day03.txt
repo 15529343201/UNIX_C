@@ -1,0 +1,62 @@
+1.复习
+  自己加载动态库:dlopen,dlsym,dlerror取得动态库相关的错误信息(一旦取走就没有这个错误信息了,直到下次再出错为止),dlclose。dlopen指定库文件应该带路径,否则就按环境变量LD_LIBRARY_PATH或者/lib,/usr/lib目录找。动态库程序文件如果是.cpp,在C++中可以用extern "C"来修饰函数表示要求C++编译器不要修改函数名,保持跟C语言一致,这样可能在动态库中通过名字找到这个函数。extern "C" void func(){}
+  环境变量操作:main的第三种格式,自行声明全局变量extern char** environ,getenv/putenv/setenv/unsetenv/clearenv  低级内存分配:sbrk/brk,内存页,getpagesize(),
+  mmap(.,len,rwx,s/p|MAP_ANONYMOUS,-1,0)/munmap失败返回-1。
+2.错误处理
+	以前C:if(func()==...) {处理错误,若干行代码}
+	c++中:if(func()==...) throw 异常数据,在某处try/catch
+	回归C:fopen(...)==NULL只知道出错了。extern int errno全局变量保存了错误代码<errno.h>。strerror(errnum)返回指定错误码对应的描述字符串<string.h>。perror(附加提示信息)打印附加提示信息和冒号以及当前错误信息字符串<stdio.h>。printf("%m")打印当前错误信息字符串。
+3.文件系统
+	通用:改名rename(原路径名,新路径名),remove(路径名)删除文件或者空目录,symlink(原路径名,符号链接名)为文件或者目录建立符号链接,access(路径名,权限)对某个文件或者目录是否有指定权限,其中权限可以是F_OK(是否存在)/R_OK/W_OK/X_OK(是否可读可写可执行)的任意组合,lstat/stat/fstat
+	xxx_t 一般是用typedef起的类型别名,绝大多数时候是某个整数类型。目的是:见名知意。typedef unsigned long time_t;time_t func();<sys/types.h>
+	lstat(路径名,struct stat* buf);取得文件或者目录的详细信息。需要先定义结构变量,把地址作为第二个参数传递。
+	chmod(路径名,权限)设置文件或者目录的新权限。
+	所有上面这些函数都返回int,0成功,-1失败。
+	  struct stat中定义的成员:(man lstat)
+	    st_mode权限和类型,权限占用低9位,高位是类型,用宏判断:
+			S_ISREG,S_ISDIR,S_ISLNK(st_mode)//755 uuugggooo
+		ino_t st_ino表示文件在磁盘的什么地方(i节点编号)
+		nlink_t st_nlink;硬链接的数量
+		uid_t st_uid;用户id
+            getpwuid(用户id)/getpwnam(用户名)(man getpwuid)
+			struct passwd{
+				char *pw_name;              /*username*/
+				uid_t pw_uid;               /*user ID*/
+				gid_t pw_gid;               /*group ID*/
+				char *pw_dir;               /*home directory*/
+				char *pw_shell;             /*shell program*/
+			};
+		gid_t st_gid;组id
+		off_t st_size;文件或者目录的字节数
+		time_t st_mtime;最后修改时间
+		   struct tm* localtime(time_t*);把时间按照本地时区转换成年月日时分秒分离的格式
+		   struct tm* gmtime(time_t*);不考虑时区
+		    struct tm {
+				int tm_sec;秒(可以是60,润秒)
+				int tm_min;分
+				int tm_hour;小时
+				int tm_mday;日
+				int tm_mon;月,要+1
+				int tm_year;年+1900
+				int tm_wday;星期0~6
+				int tm_yday;本年已过多少天
+			};
+			time_t mktime(struct tm*)把分离的时间合成整数
+			strftime(char数组,数组长度,"格式",struct tm*)把分离的时间按指定格式变成一个字符串保存在数组中。返回字符串的长度。格式里面可以有普通的字符串,还可以有类似printf的%占位符:%Y,%m,%d,%H,%M,%S,%F=%Y-%m-%d,%T=%H:%M:%S,%w星期几
+	潜规则:结构成员命名一般以结构名的缩写加下划线开头。
+
+小练习:从命令行提供一个文件或者目录路径,显示这个文件或者目录的最后修改时间,格式为年月日时分秒
+	
+	目录:目录就是文件夹,里面可能有文件或者子目录。使用目录时要特别注意路径问题:相对路径和绝对路径。
+	     cd命令不带参数表示回到主目录,等同于cd ~。
+		 DIR* opendir(目录路径)打开指定目录,返回一个指针代表这个打开的目录,失败返回NULL。DIR类型没有确切定义。
+		 struct dirent* readdir(DIR*)依次从目录中读取一项(一个文件或者子目录,统称为一个目录入口)信息。返回结构指针,指向包含目录入口信息的结构变量。dirent结构的定义也没有统一规定,但是一定有一个d_name成员保存着文件或者子目录的名字(没有路径,类似于ls命令显示地那样)。读完了返回NULL。
+		 closedir(DIR*)关闭打开的目录。
+		 telldir/seekdir...
+		 chdir(目录路径)把指定目录设为当前目录
+		 getcwd(字符数组,数组长度)取得当前目录的绝对路径
+		 mkdir(目录路径,权限)按指定权限创建目录 man -a mkdir(看函数)
+		 rmdir(目录路径)删除指定的空目录
+		 
+
+	文件

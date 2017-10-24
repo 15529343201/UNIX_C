@@ -1,0 +1,50 @@
+1、文件操作
+  打开:int open(path,flag[,mode])打开一个文件,返回文件描述符(会是尽可能小的非负整数),-1失败。flag必选的是O_RDONLY/O_WRONLY/O_RDWR三选一,可选的O_APPEND/O_CREAT(有这个标志才可能新建文件)/O_EXCL(必须是新建文件)/O_TRUNC(清空文件原有内容truncate(path,0)),一旦有O_CREAT就有可能新建文件,因此需要指定第三个参数mode表示权限。
+  truncate(path,len)把文件内容截成指定长度
+  ftruncate(fd,len)把打开的文件截成指定长度,fd表示文件描述符
+  读取:int read(fd,address,bytes)从文件读取最多bytes字节的数据到内存address地址开始的地方,返回成功读取到的字节数,失败-1。
+  写入:int write(fd,address,bytes)把内存address地址开始的bytes个字节的数据写入到文件中,返回写入的字节数。
+  关闭close(fd)
+  定位读写位置lseek(fd,offset,whence)把文件的读写位置定位到离参考点whence距离offse远的位置。参考点可以是SEEK_SET(文件头)/SEEK_CUR(当前位置)/SEEK_END(文件尾)之一,偏移量offset正表示向文件尾方向,负表示向文件头方向。返回调整后的位置离文件头的偏移量。可以定位到超过文件尾的位置,相当于在文件尾预留一段地方,称为空洞。
+  umask(mode)指定要过滤(屏蔽)掉那些权限,影响创建文件和目录时指定的权限。
+  umask命令也是如此
+  特殊文件描述符:0标准输入设备文件STDIN_FILENO,1标准输出设备文件STDOUT_FILENO,2标准错误设备文件STDERR_FILENO
+  特殊文件:/dev/tty当期终端,/dev/pts/n编号为n的虚拟终端,/dev/null空设备文件(无底洞),/dev/zero
+    find ~ -name "*.c" > /dev/null正常输出重定向
+	find ~ -name "*.c" 2> /dev/null错误信息重定向
+	正常输出和错误信息都重定向:
+	find ~ -name "*.c" > /dev/null 2> /dev/null
+	find ~ -name "*.c" > /dev/null 2>&1
+	find ~ -name "*.c" >& /dev/null
+  fcntl(文件描述符,命令,struct flock*)功能很多,但一般用来给文件加锁解锁
+  其中的"命令"可以是F_GETLK(取得锁信息)/F_SETLK(加锁)/F_SETLKW(加锁直到成功为止)
+  struct flock{
+	...
+	short l_type:锁类型(F_RDLCK读锁,F_WRLCk写锁独占,F_UNLCK解锁) 对文件的同一段内容,多个读锁可以共存,多个写锁或者读锁写锁之间不能共存,谁加的锁由谁解)
+	short l_whence/off_t l_start:参考点和偏移量共同指定加解锁内容的开始位置。
+	off_t l_len:要加锁解锁的字节数
+	pid_t l_pid:那个进程加的锁,F_GETLK命令时才有意义
+	...
+  };
+  fg:用于将后台作业(在后台运行的或者在后台挂起的作业)放到前台终端运行。与bg命令一样,若后台任务中只有一个,则使用该命令时,可以省略任务号。
+  ioctl调用驱动程序接口,不同的驱动使用的参数及其含义各不相同。
+  系统:read/write二进制格式数据
+  C语言:fread/fwrite,fgetc/fputc,fgets/fputs,fscanf/fprintf,...
+  C++:ifstream/ofstream,<</>>,...
+  mmap:可以把文件映射到内存中,像访问内存一样访问文件。
+  mmap(addr,len,prot,flag,fd,start)把fd代表的文件从离文件头start远的地方开始len个字节的数据映射到内存addr开始的地址,返回实际映射成的地址,失败返回-1(MAP_FAILED)。addr一般不指定而是用NULL让系统自动选择合适的地址,len随意但实际映射的内存会是一页(4k)的整倍数,fd一定要以可读方式打开,start必须是一页的整倍数,prot可以是PROT_READ/PROT_WRITE/PROT_EXEC的任意组合(要跟fd的打开方式相容),flag可以是MAP_ANONYMOUS(不使用文件)或者0根MAP_SHARED(共享:内存和文件同步)/MAP_PRIVATE(私有:内存和文件内容不同步)二选一组合。
+  sync/fsync/fdatasync,dup/dup2
+
+  <<unix环境高级编程>>,<<unix网络编程>>,<<linux c编程一站式>>,<<精通unix下c语言编写与项目实践>>,<<linux c编程实战>>
+
+进程:
+  getpid(),getppid(),getuid(),getgid(),gethostname(char数组,数组大小)...
+  ps -l列出进程菜单
+  ps -f显示完成命令
+  ps -p指定进程id
+  ps -e显示所有进程(默认只显示本终端的进程)
+
+  系统初始化进程init的id为1。
+  在UNIX系统里有一个id为0的进程,是调度进程。
+  每一份运行中的程序都各是一个进程。进程间的内存是独立的。
+  每个进程都有父进程(init除外)
