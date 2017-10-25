@@ -1,0 +1,45 @@
+1、复习(system,fork),讲作业
+2、多进程
+	fork[{}{}]
+	exec系列函数:在本进程中加载另一个程序并且从头执行。一旦加载成功,原来进程中的代码就不再其任何作用,所以实际加载时不保留原来的代码,而是用新程序的代码覆盖原来进程内存中的代码,数据也同样覆盖。因此,exec函数调用之后的代码只有在exec调用失败的情况下才可能得到执行。
+	潜规则:向函数传递指针数组时,一般不传递元素个数,而是以NULL作为结束元素。
+	execv(path,argv);
+	main(/*argc,*/argv[]/*,env[]*/)
+	execvp跟execv一样,只是会通过环境变量PATH去找可执行文件
+	execl(path,argv中的元素依次排列作为参数)最后一个参数一定是NULL
+	execlp跟execl一样,只是会通过环境变量PATH去找可执行文件
+	//execve和execle用法对应跟execv和execl一样,只是在最后增加一个参数char* env[]来传递环境变量数组(作为新程序main的第三个参数)
+	exec系列函数加载程序之后,进程id不必,但进程内容变成新程序了。
+	一般在exec函数调用之前先fork,在在子进程中调用exec加载新程序,两个进程就同时运行了。
+	vfork类似fork新建一个进程但并不克隆,需要立即用exec系列函数加载新程序进来执行。返回值也跟fork一样(在子进程中返回0,在父进程中返回子进程id)。警告:在vfork调用与exec函数调用之间如果修改了某个变量的值后果不确定(保存vfork的返回值是可以的),最好不要在两者之间插入任何代码。
+
+3、信号signal
+	信号是一种软中断,在程序中每个信号用一个整数来表示。为了便于记忆,每个信号整数对应有一个宏定义。see also    man 7 signal
+	SIGKILL 9 必杀信号
+	SIGSTOP 停止信号,进程立即停止(不是终止)
+	SIGCONT 继续信号,系统让停止的进程继续执行
+	SIGINT Ctrl+C发出的信号,默认终止进程
+	SIGQUIT Ctrl+\发出的信号,默认也是终止进程并产生Core文件
+	SIGTSTP Ctrl+Z发出的信号,默认停止进程
+	SIGTERM kill命令默认发送的信号,默认终止进程
+	SIGCHLD 子进程结束(或停止)信号,默认忽略
+	SIGALRM 闹钟信号,alarm定时时间到系统发出的信号,默认终止进程
+
+	自己处理信号:
+		signal(信号,func)登记如果指定信号到来不是采用默认处理而是由函数func来处理。信号处理函数格式void func(int sig);其中sig表示目前正在处理的信号。signal函数的返回值是那个信号原来的处理函数。
+		void (* signal(int,void(*)(int)) )(int)
+		typedef void(*sigf)(int);
+		sigf signal(int,sigf);
+		
+		kill -信号 进程id:发送指定信号到指定进程
+		信号可能会打断正在阻塞中的函数,使函数失败返回。一般会把errno设置为EINTR。回忆:WIFEXITED/WIFSIGNALED,WEXITSTATUS/WTERMIG。
+		alarm(秒数)定时指定秒数之后系统向进程发送SIGALRM信号。
+		积压的多个相同的信号可能会合并为一个。
+		有两个信号不能捕获:SIGKILL,SIGSTOP。
+		//setitimer(定时器类型,定时值结构变量地址,旧定时值结构变量地址)设置反复发生的定时器
+		raise(信号)给本进程发送信号。
+		kill(pid,sig)向指定进程pid发送信号sig。如果pid为0表示向本组的所有进程发信号(子进程默认跟父进程同组)。如果sig为0不发信号但检测进程id是否存在。成功返回0,失败返回-1。
+		signal(信号,SIG_IGN)忽略指定信号
+		signal(信号,SIG_DFL)恢复信号的默认处理
+		signal返回SIG_ERR(也就是-1)表示出错
+		关机时系统会先向所有进程发送SIGTERM信号,如果没有结束,习惯会发送SIGKILL信号。因此一般程序都应该捕获SIGTERM信号让自己正常结束。
