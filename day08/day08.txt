@@ -1,0 +1,66 @@
+1、多进程,信号,(mmap映射同一个文件也可以在进程间通信),捕获(需要一个处理函数void func(int))/忽略SIG_IGN/SIG_DFL,SIGCONT
+2、复杂信号
+   1)不可重入问题struct passwd* getpwnam/getpwuid
+   struct passwd* p=getpwnam("tarena");
+		使用了全局变量、静态局部变量的函数、可能会一直阻塞的函数一般都是不可重入的。
+   2)阻塞信号
+		信号集:一般用一个64位的整数来表示,每一位表示一个信号。类型是sigset_t。操作函数sigemptyset(清空信号集)/sigfillset(填满信号集)/sigaddset(添加一个信号到信号集中)/sigdelset(从信号集中删除一个信号)/sigismember(检测一个信号是否在信号集中)。   
+		sigprocmask(cmd,newset,oldset)设置阻塞信号集。cmd为SIG_BLOCK表示添加newset到当前阻塞信号集里,SIG_UNBLOCK表示取消对newset里信号的阻塞,SET_SETMASK不管原来阻塞信号是什么直接重新设置成newset。oldset中会取得原来的阻塞信号集。
+		设置newset-->sigprocmask(SIG_BLOCK,newset,oldset)-->做需要屏蔽信号的任务-->sigprocmask(SIG_SETMASK,oldset,NULL)
+		****注意:阻塞信号并不丢弃信号。
+			sigpending取得处于未处理(未决)状态的信号集。
+			typedef void(*sigf)(int)
+			typedef int t;//typedef 旧类型名 新类型名;(理解错误)
+			(1)定义一个那个类型的变量名:int t;void(*sigf)(int);
+			(2)在最左边写上typedef:typedef int t;typedef void (*sigf)(int);
+	3)处理带参数的信号:sigaction/sigqueue
+		sigaction(sig,struct sigaction*act,struct sigaction*oldact)设置对信号sig用act指定的方式处理,把对这个信号原来的处理方式保存在oldact中。
+				struct sigaction{
+						void (*sa_handler)(int);//无参信号
+						void (*sa_sigaction)(int,siginfo_t *,void *);//带参信号
+						sigset_t sa_mask;//处理该信号时要屏蔽的信号
+						int sa_flags;//0表示用无参信号处理函数,SA_SIGINFO表示用带参信号处理函数
+						void (*sa_restorer)(void);//废弃的成员
+				};
+				struct siginfo_t{
+						...
+						pid_t si_pid;//哪个进程发来的
+						uid_t si_uid;//哪个用户发来的
+						sigval_t si_value;//发送时附带的数据
+						...
+				};
+		sigqueue(pid,sig,value);//发送带参的信号
+		union sigval{
+				int sigval_int;
+				void *sival_ptr;
+		}value;
+3、进程间通信Inter-Process Communication,IPC
+	1)匿名管道
+		pipe(int fd[2])产生一个管道,两端各自用一个文件描述符表示,其中读端的文件描述符保存在fd[0],写端的文件描述符保存在fd[1]中。只能用于fork产生的父子进程之间通信。在其中一个进程里关闭读端保留写端,而在另一个进程里关闭写端保留读端。
+	2)命名管道named pipe(管道文件,mkfifo命令/函数)
+		mkfifo(path,mode)按指定权限（umask影响)创建管道文件path
+		#include<sys/stat.h>
+		使用管道文件跟使用普通文件一样,除了:
+			*打开时不应使用O_CREAT;
+			*打开操作会等待到同时存在读写双方时才会继续。
+		可以用于任意两个进程之间进行单向通信。
+	3)匿名本地网络
+		socketpair(AF_LOCAL,SOCK_STREAM,0,int fd[2]);产生一对互相连接的网络套接字(文件描述符),可以用来在两个进程间进行双向通信。用于fork的父子进程之间,每个进程只需要保留其中一个套接字,读写都用它。
+4、专用进程间通信方式:共享内存/消息队列/信号量
+	System V IPC:共享内存和消息队列比较好用
+	POSIX IPC:信号量比较好用
+	#include<sys/ipc.h>
+	1)共享内存shared memory,#include<sys/shm.h>
+		shmget(key,size,flag|mode)创建或者取得一个共享内存对象,返回对象id。同一个key返回的是同一个共享内存对象id,当key是IPC_PRIVATE(也就是0)的时候例外(总是新建一个共享内存对象)。flag可以是0或者IPC_CREAT(不存在就新建一个)或者IPC_EXCL(必须新建一个)适当组合。mode跟文件的权限一样。失败返回-1。key类似于文件路径,甚至可以用文件路径通过函数ftok来产生key。
+		shmat(id,NULL,0或者SHM_RDONLY)把共享内存对象挂接到本进程的内存中,返回挂接后的地址,失败返回(void*)-1。
+		shmdt(addr)解除挂接,addr是shmat返回的地址。
+		shmctl(id,IPC_RMID,NULL);删除一个共享内存对象。
+	**进程间通信对象是内核对象,即使进程结束它依然存在。可以用命令ipcs查看。可以用命令ipcrm删除。
+	2)消息队列messge queue,#include<sys/msg.h>
+		msgget(key,flag|mode)创建或者取得一个消息队列对象,返回对象id。同一个key得到同一个对象。flag和mode同shmget。
+		msgsnd(id,msg*,size,0或者IPC_NOWAIT)打包发送一个消息数据到消息队列中。打包结构:
+			struct msg{
+				long type;//消息类型,正整数
+				char data[?];//任意类型的消息数据,任意长度
+			};
+		msgrcv(id,msg*,maxsize,type,0或者IPC_NOWAIT)从消息队列中接收一个指定类型的消息(type为0表示无论什么类型都可以),返回收到的字节数,失败-1。最后一个参数为0表示没有指定类型的消息就等待,为IPC_NOWAIT则表示不等待。		msgctl(id,IPC_RMID,NULL)删除一个消息队列对象。
