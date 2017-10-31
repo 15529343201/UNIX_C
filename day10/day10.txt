@@ -1,0 +1,102 @@
+1、复习
+	信号量集(semget/semop/semctl)
+	线程(pthread.h,-lpthread,pthread_create,pthread_join,pthread_detach,pthread_exit,pthread_cancel,/*pthread_self()取得自己的线程id*/)
+	线程同步(信号量sem_init/sem_wait/sem_post/sem_destroy,互斥量pthread_mutex_init/pthread_mutex_destroy/pthread_mutex_lock/pthread_mutex_unlock)
+2、条件变量condition:多个线程等待某个条件满足,在条件达到时由一个线程去通知等待的线程。
+	pthread_cond_t c;
+	pthread_cond_init(&c,NULL)初始化一个条件变量
+	pthread_cond_destroy(&c)销毁一个条件变量
+	pthread_cond_signal(&c)通知一个在等待这个条件的线程,如果有多个线程在等待,只有其中一个得到通知;如果没有线程在等待,这个通知就作废,不会保留。
+	pthread_cond_broadcase(&c)通知所有正在等待这个条件的线程。
+	pthread_mutex_t m=PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_lock(&m);
+	pthread_cond_wait(&c,&m)在一个条件变量上等待通知。条件变量总是要跟一个互斥量一起使用,在wait前先必须把互斥量加锁,wait函数会自动把互斥量解锁后进入等待状态《得到通知后结束等待
+	pthread_cond_timedwait...限时等待
+3、区别:
+	多进程适合粗粒度(coarse-grained)的多任务分块,多线程适合细粒度(fine-grained)的多任务分块。
+	多进程占用资源多,每个进程有自己的进程空间、进程id、进程状态(进程控制块PCB),内存是独立的,需要使用专门的方式辅助通信。多线程占用资源少,每个线程有自己的栈,内存是共用的,对关键共用资源的访问往往要考虑同步问题。
+	线程是轻量级的多任务,尽量用多线程。CPU调度以线程为单位。
+4、网络(network/internet)通信:跨越计算机的通信
+	1)基础
+	协议(protocol):网络通信使用的约定
+	OSI网络模型,把网络通信分7层:
+	物理层:物理设备的协议
+	数据链路层:MAC地址寻址通信目标,广播
+	网络层:IP地址寻址
+	传输层:TCP,UDP传输控制
+	会话层:连接控制
+	表示层:数据标识格式 0x12345678:12 34 56 78/78 56 34 12
+	应用层:ftp,http,telnet,pop3,smtp...
+	TCP/IP网络模型:实际使用中的网络通信协议模型
+		arpa项目
+		硬件和驱动:物理层、数据链路层
+		互联网层:网络层
+		传输网:传输层
+		应用层:会话层、表示层、应用层
+	套接字socket:操作系统提供的网络通信接口
+	字节顺序问题:小端、大端,网络字节顺序
+		0x00000001 01 00 00 00 ==> 0x01000000
+		字节顺序转换函数:network,host,short,long
+		htons(unsigned short)2字节的本机格式到网络格式
+		htonl(unsigned long)4字节的本机格式到网络格式		 ntohs(unsigned short)2字节的网络格式到本机格式
+		ntohl(unsigned long)4字节的网络格式到本机格式		 #include<arpa/inet.h> 
+	IP地址:x.x.x.x,每个数在0-255之间。
+		A类:第一个数最高二进制位为0(1~127)
+			127.x.x.x表示自己(本机)
+			第一个数表示网络地址,后三个数表示主机地址。
+			子网掩码:4字节的一个数,跟IP地址按位相与,结果相等的IP属于同一个子网。255.255.255.0,255.255.0.0,255.255.128.0,...
+		B类:第一个数最高两个二进制位为10(128~191)
+			前两个数表示网络地址,后两个数表示主机地址
+		C类:第一个数最高三个二进制位为110(192~223)
+			前三个数表示网络地址,后一个数表示主机地址
+		D类:1110
+		E类:1111
+		局域网IP:10.x.x.x,172.x.x.x,192.x.x.x
+		主机地址全0不表示主机而表示网络,全二进制1(也就是255)表示广播地址。
+		IPv4(4字节),IPv6(16字节)
+		内部格式:long ip;
+		点分十进制格式:char ip[16];
+		格式转换:
+		inet_pton(AF_INET,str,&ip32)把点分十进制格式的ip地址转换成内部格式的ip地址
+		inet_ntop(AF_INET,&ip32,str,size)把内部格式的ip地址转换成点分十进制格式的字符串
+		inet_addr(str)把IPv4的点分十进制ip地址转换成内部格式(in_addr_t)的IP地址返回
+		inet_aton(str,in_addr*)把IPv4的点分十进制ip地址转换成内部格式保存在第二个参数所指向的结构中。
+		char* inet_ntoa(in_addr)把结构中的IPv4的ip地址转换成点分十进制字符串返回。
+			#include<sys/socket.h>
+			#include<netinet/in.h>
+			#include<arpa/inet.h>
+				<netinet/in.h> as:
+				typedef uint32_t in_addr_t;
+				struct in_addr{
+					in_addr_t s_addr;//命名不规范
+				};
+	******在unxi系统里编译连接需要-lsocket -lnsl******
+	2)网络通信程序框架(TCP传输控制协议)
+		TCP三次握手建立连接:
+			客户端(client)		服务器(server)
+				syn(num)------------>
+						<-----------ack(num+1) syn(k)
+				ack(k+1)------------>
+		TCP传输可以保证数据要么正确送达目的地,要么返回失败信息。
+----------------------------------------------------------------------------------------------------
+		服务器							客户端
+	  话机:socket						socket
+	  绑定:bind							
+	  多路:listen
+	  等待:accept					  拨打:connect
+	  接通:新socket
+   总机等别的电话,分机跟客户通信
+   	  通信:反复write/read			 反复read/write
+	  挂断分机:close				   挂断:close
+
+	  端口号port:系统为每一个使用网络的应用分配一个编号,unsigned short类型。由传输层控制。IP和端口合称套接信息。
+	  struct sockaddr{
+		byte sa_family;
+		char ip_and_port[];
+	  };
+	  struct sockaddr_in{
+		byte sin_family;
+		struct in_addr sin_addr;
+		unsigned short port;
+		...
+	  };

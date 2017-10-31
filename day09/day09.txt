@@ -1,0 +1,79 @@
+1、复习进程间通信
+    信号(软中断,signal,sigaction)
+    共享内存(shmXXX,mmap+文件) get/at/dt/ctl
+    管道(匿名pipe,命名mkfifo)
+    套接字对socketpair(双向类似电话线两端)
+    消息队列(msgXXX) get/snd/rcv/ctl
+    ***stack smash--已放弃***是越界保存数据破坏了栈中的控制数据引起的。
+    消息队列里的消息由类型和数据两部分组成。发送和接收的时候指定长度(字节数)都是指定数据部分的长度(不包括类型所占的4个字节)
+2、IPC
+    信号量集:semaphore set(跟前面学的信号signal毫不相干)
+    #include<sys/sem.h>
+    semget(key,n,flag)创建或者取得一个信号量集对象,返回对象id。同一个key取得同一个信号量集对象。n是信号量的个数,一般用1。flag可以是0/IPC_CREAT/IPC_EXCL跟权限的组合。
+    semop(id,struct sembuf ops[],n)对信号量集进行数组ops指定的操作,n是ops数组中元素的个数(一般是1)。信号量集里可以有若干个信号量,它们的编号从0开始(类似于数组下标)。
+	struct sembuf{
+	   ...
+	   unsigned short sem_num;//要操作的信号量编号,一般是0,表示第一个信号量
+	   short sem_op;//计数器操作,一般是1或-1,表示计数器+1或者-1。
+	   short sem_flag;//0或IPC_NOWAIT跟SEM_UNDO组合。其中SEM_UNDO表示进程结束时系统自动复原该进程对信号量(计数器)的操作。
+	   ...
+	};
+    semctl(id,0,IPC_RMID,NULL)删除一个信号量集对象
+    semctl(id,idx,SETVAL,N)设置编号(下标)为idx的信号量值为N。idx一般为0.
+    一个信号量就是一个计数器,一般用来控制访问同一资源的进程数量,控制多个进程的同步。计数器的减1操作在不够减时会等待,直到够减了为止(信号可能会打断它)。semtimedop可以指定超时时间。
+3、守护进程(精灵进程)daemon
+	daemon(是否保持当前目录,是否保持终端文件),一般两个参数都用0,
+	自己实现:(一般步骤)
+		(1)fork()让父进程结束
+		(2)关闭终端相关的三个文件
+		(3)重新设置当前目录(一般设为根目录或者主目录)
+		(4)重设umask
+		(5)setsid()独立建一个进程组(和一个会话)
+		(6)无限循环在后台做工作
+	
+-----------------------
+void f(XXX a[],int n);
+XXX t[10]; f(t,10);
+XXX w; f(&w,1); w.aa=...;w.bb=...;
+XXX w[1]; f(w,1); w[0].aa=...;w[0].bb=...;
+
+4、多线程threads
+	一般一个进程只有一条执行线索(线程),就是main函数。这也称为主线程。如果一个进程内部有多个任务需要并行工作,也可以自己创建一些辅助线程。
+	#include<pthread.h>
+	库:pthread
+	void* func(void*);
+	pthread_t threadid;
+	创建:pthread_create(&threadid,NULL,func,arg);启动一个新线程执行func(arg),把线程id保存在threadid中。新线程和旧线程并行执行。
+	等待线程结束:
+		void* v;
+		pthread_join(threadid,&v);
+
+int * v;
+func(&x);//XXX func(int **p);
+	小练习:写一个小程序,定义一个int数组,20个元素,辅助线程每秒在数组里存放一个整数,从100开始,依次递增,顺序放到数组中;主线程每秒从数组中取得一个元素显示。
+	终止一个线程:
+		pthread_exit(void* ret)终止本线程
+		pthread_cancel(threadid)请求终止线程threadid。		 
+		int pthread_setcancelstate(int state,int *oldstate);
+	state:PTHREAD_CANCEL_ENABLE允许被cancle终止,PTHREAD_CANCEL_DISABLE不允许被cancle终止
+		int pthread_setcanceltype(int type,int *oldtype);
+	type:PTHREAD_CANCEL_ASYNCHRONOUS在收到cancel请求时立即终止,PTHREAD_CANCEL_DEFERRED在收到cancel请求时执行到"取消点"时终止(取消点一般是io操作或者需要等待的操作)。
+	分离线程:pthread_detach(threadid)让一个线程结束后就直接丢弃线程信息,不等待其它线程去pthread_join它。
+	-lpthread或者-pthread
+5、线程同步
+	互斥量mutex
+	pthread_mutex_t m=PTHREAD_MUTEX_INITIALIZER;//直接初始化
+	pthread_mutex_init(&m,NULL);//初始化一个互斥量
+	pthread_mutex_destory(&m);//销毁一个互斥量
+	pthread_mutex_lock(&m);//对一个互斥量加锁。如果互斥量已经加锁,函数会一直等待等到有线程把这个互斥量解锁之后再去加锁。如果不愿意等待可以用pthread_mutex_trylock。
+	pthread_mutex_unlock(&m)//对一个互斥量解锁。那个线程加锁只能由哪个线程解,别的线程不能解。
+	互斥量用来控制多个线程对共享资源的访问
+	
+	posix信号量:
+		#include<semaphore.h>
+		sem_t s;
+		sem_init(&s,0,n)初识化一个信号量的值为n
+		sem_wait(&s);//把计数器减1,如果不够减就等待,直到够减为止。
+		sem_post(&s);//把计数器加1
+		sem_destroy(&s);//销毁一个信号量
+	信号量用于多个线程之间同步。
