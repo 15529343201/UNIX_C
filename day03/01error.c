@@ -16,3 +16,11 @@ int main()
 
 	}
 }
+/*
+打开文件furong失败
+打开方式无效
+errno=22
+Invalid argument
+错误信息:不合法的参数
+error string:[ Invalid argument]
+*/

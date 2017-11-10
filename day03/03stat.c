@@ -24,3 +24,8 @@ int main(int argc,char* argv[])
 	printf("权限:%o\n",s.st_mode&0777);
 
 }
+/*
+./a.out ../
+目录
+权限:775
+*/

@@ -22,4 +22,6 @@ int main(int argc,char* argv[])
 		puts(buf);
 	}
 }
-				
+/*				
+最后修改时间2017-11-10 22:30:45
+*/

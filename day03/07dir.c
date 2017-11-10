@@ -13,3 +13,17 @@ int main()
 	}
 	closedir(p);//关闭目录
 }
+/*
+day03.txt
+07dir.c
+04user.c
+08dir.c
+a.out
+02file.c
+furong
+03stat.c
+01error.c
+lfr
+06time.c
+05now.c
+*/

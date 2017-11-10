@@ -1,5 +1,4 @@
 #include<stdio.h>
-
 int sum=0;
 int main()
 {
@@ -13,3 +12,13 @@ int main()
 	}
 	return 0;
 }
+/*
+sum=0x561f06ce7014,&d=0x7ffcca36fc44
+请输入一个整数:30
+&sum=0x561f06ce7014,sum=30
+请输入一个整数:31
+&sum=0x561f06ce7014,sum=61
+请输入一个整数:32
+&sum=0x561f06ce7014,sum=93
+*/
+

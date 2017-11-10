@@ -17,3 +17,7 @@ int main(int argc,char* argv[])
 			getpwuid(s.st_uid)->pw_name,
 			s.st_size);
 }
+/*
+./a.out ../
+硬链接13,用户名ubuntu,字节数4096
+*/

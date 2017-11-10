@@ -8,9 +8,9 @@ int main()
 	scanf("%d",&sel);
 	void* handle;
 	if(sel==1)//根据用户的选择决定加载那个动态库
-		handle = dlopen("libch.so",RTLD_NOW);
+		handle = dlopen("./libch.so",RTLD_NOW);
 	else
-		handle = dlopen("liben.so",RTLD_NOW);
+		handle = dlopen("./liben.so",RTLD_NOW);
 	if(handle == NULL){//如果失败显示错误信息后退出
 		puts(dlerror());
 		return -1;
@@ -26,3 +26,4 @@ int main()
 }	
 //gcc 03dl.c -ldl
 //export LD_LIBRARY_PATH=.或者给库加上路径,如./libch.so
+

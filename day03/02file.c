@@ -1,6 +1,8 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
+#include<fcntl.h>
+#include<sys/stat.h>
 //rename,symlink,chmod,access,remove
 int main(int argc,char* argv[])
 {
@@ -16,3 +18,9 @@ int main(int argc,char* argv[])
 	if(access("furong",X_OK)==0)
 		puts("可执行");
 }
+/*
+furong存在
+可读
+可写
+可执行
+*/

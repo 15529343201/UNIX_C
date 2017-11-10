@@ -12,3 +12,7 @@ int main()
 	if(p)
 		puts(p);
 }
+/*
+csd1212
+芙蓉
+*/
